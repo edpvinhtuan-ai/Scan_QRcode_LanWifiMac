@@ -20,12 +20,14 @@ interface CameraScannerProps {
   onScanComplete: (record: ScannedRecord) => void;
   soundEnabled: boolean;
   isSyncing: boolean;
+  currentCodes?: { macLan?: string; macWifi?: string; qrCode?: string };
 }
 
 export const CameraScanner: React.FC<CameraScannerProps> = ({
   onScanComplete,
   soundEnabled,
   isSyncing,
+  currentCodes,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -759,6 +761,43 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
                 />
               </label>
             </div>
+          </div>
+        )}
+
+        {/* Status HUD: Tiến độ quét Bộ 3 mã thiết bị */}
+        {cameraActive && (
+          <div className="absolute top-2.5 inset-x-3 flex items-center justify-between pointer-events-none z-10 text-[10px]">
+            <div className="flex items-center gap-1.5 bg-slate-950/85 backdrop-blur-md px-2.5 py-1 rounded-full border border-slate-700/80 shadow-md">
+              <span className={currentCodes?.macLan ? "text-emerald-400 font-bold" : "text-slate-400"}>
+                {currentCodes?.macLan ? "✓ LAN" : "○ LAN"}
+              </span>
+              <span className="text-slate-600">•</span>
+              <span className={currentCodes?.macWifi ? "text-cyan-400 font-bold" : "text-slate-400"}>
+                {currentCodes?.macWifi ? "✓ WiFi" : "○ WiFi"}
+              </span>
+              <span className="text-slate-600">•</span>
+              <span className={currentCodes?.qrCode ? "text-amber-400 font-bold" : "text-slate-400"}>
+                {currentCodes?.qrCode ? "✓ QR" : "○ QR"}
+              </span>
+            </div>
+            {(() => {
+              const count = [
+                Boolean(currentCodes?.macLan?.trim()),
+                Boolean(currentCodes?.macWifi?.trim()),
+                Boolean(currentCodes?.qrCode?.trim()),
+              ].filter(Boolean).length;
+              return (
+                <div className={`px-2 py-0.5 rounded-full font-bold backdrop-blur-md border text-[10px] shadow-md ${
+                  count === 3
+                    ? 'bg-emerald-500/30 text-emerald-300 border-emerald-400/50'
+                    : count > 0
+                    ? 'bg-amber-500/30 text-amber-300 border-amber-400/50'
+                    : 'bg-slate-950/80 text-slate-400 border-slate-700/80'
+                }`}>
+                  {count === 3 ? '✓ Đủ 3/3 mã' : `Cần đủ 3 mã (${count}/3)`}
+                </div>
+              );
+            })()}
           </div>
         )}
 

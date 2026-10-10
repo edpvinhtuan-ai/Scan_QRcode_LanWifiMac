@@ -179,6 +179,118 @@ export async function getSpreadsheetDetails(spreadsheetId: string) {
   };
 }
 
+export interface CodeDuplicateResult {
+  exists: boolean;
+  field: string;
+  value: string;
+  rowNum: number;
+  matchedInColumn?: string;
+}
+
+/**
+ * Kiểm tra xem có bất kỳ mã nào trong Bộ 3 mã (MAC LAN, MAC WiFi, QR Code)
+ * đã tồn tại trong các dòng Google Sheet hay chưa.
+ */
+export function findCodeDuplicateInRows(
+  codes: { macLan?: string; macWifi?: string; qrCode?: string },
+  rows: string[][] | null | undefined
+): CodeDuplicateResult | null {
+  if (!rows || rows.length <= 1) return null;
+
+  const normalizeHex = (val?: string) => (val || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+  const testLanHex = normalizeHex(codes.macLan);
+  const testWifiHex = normalizeHex(codes.macWifi);
+  const testQr = (codes.qrCode || '').trim().toUpperCase();
+  const testQrParts = testQr ? testQr.split(',').map((p) => p.trim()).filter(Boolean) : [];
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 1;
+    const rowLanHex = normalizeHex(row[1]);
+    const rowWifiHex = normalizeHex(row[2]);
+    const rowQr1 = (row[3] || '').trim().toUpperCase();
+    const rowQr2 = (row[4] || '').trim().toUpperCase();
+
+    // 1. Kiểm tra MAC LAN
+    if (testLanHex && testLanHex.length >= 6) {
+      if (rowLanHex === testLanHex) {
+        return {
+          exists: true,
+          field: 'MAC LAN',
+          value: codes.macLan || testLanHex,
+          rowNum,
+          matchedInColumn: 'Cột B (MAC LAN)',
+        };
+      }
+      if (rowWifiHex === testLanHex) {
+        return {
+          exists: true,
+          field: 'MAC LAN',
+          value: codes.macLan || testLanHex,
+          rowNum,
+          matchedInColumn: 'Cột C (MAC WiFi)',
+        };
+      }
+    }
+
+    // 2. Kiểm tra MAC WiFi
+    if (testWifiHex && testWifiHex.length >= 6) {
+      if (rowWifiHex === testWifiHex) {
+        return {
+          exists: true,
+          field: 'MAC WiFi',
+          value: codes.macWifi || testWifiHex,
+          rowNum,
+          matchedInColumn: 'Cột C (MAC WiFi)',
+        };
+      }
+      if (rowLanHex === testWifiHex) {
+        return {
+          exists: true,
+          field: 'MAC WiFi',
+          value: codes.macWifi || testWifiHex,
+          rowNum,
+          matchedInColumn: 'Cột B (MAC LAN)',
+        };
+      }
+    }
+
+    // 3. Kiểm tra Mã QR Code (Cột D & E)
+    if (testQr) {
+      if (rowQr1 && (rowQr1 === testQr || testQrParts.includes(rowQr1))) {
+        return {
+          exists: true,
+          field: 'Mã QR Code',
+          value: codes.qrCode || testQr,
+          rowNum,
+          matchedInColumn: 'Cột D (Mã QR Code 1)',
+        };
+      }
+      if (rowQr2 && (rowQr2 === testQr || testQrParts.includes(rowQr2))) {
+        return {
+          exists: true,
+          field: 'Mã QR Code',
+          value: codes.qrCode || testQr,
+          rowNum,
+          matchedInColumn: 'Cột E (Mã QR Code 2)',
+        };
+      }
+      const combinedRowQr = [rowQr1, rowQr2].filter(Boolean).join(',');
+      if (combinedRowQr && combinedRowQr === testQr) {
+        return {
+          exists: true,
+          field: 'Mã QR Code',
+          value: codes.qrCode || testQr,
+          rowNum,
+          matchedInColumn: 'Cột D-E (QR Code)',
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 /**
  * Fetch rows from a spreadsheet tab in real-time
  */
@@ -196,7 +308,7 @@ export async function fetchSheetRows(
   }
 
   const escapedTab = `'${resolvedTab.replace(/'/g, "''")}'`;
-  const range = encodeURIComponent(`${escapedTab}!A1:F500`);
+  const range = encodeURIComponent(`${escapedTab}!A1:E2000`);
   const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
