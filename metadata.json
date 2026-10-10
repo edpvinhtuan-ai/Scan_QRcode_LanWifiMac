@@ -1,0 +1,6 @@
+{
+  "name": "Smart Sheet Scanner",
+  "description": "Quét mã vạch, số serial và thông tin nhãn thiết bị qua camera điện thoại và tự động đồng bộ thời gian thực vào Google Sheets.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
